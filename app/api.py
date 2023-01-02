@@ -9,11 +9,10 @@ import urllib
 import requests
 import json
 from app import app, db
-from flask import request
+from flask import request, jsonify
 import jwt
 import datetime
 from authentication.configuration import token_required, send_email
-
 
 # By using this you can sign up and create an account which will be stored in "users" table
 @app.route('/user/signup', methods=['POST'])
@@ -81,30 +80,19 @@ def createdataset():
             pass
     return 'Create Dataset Returned'
 
-
-# # By using this user can search the car registration report using "make" and "year"
-# @app.route('/search/<make>/<year>', methods=['GET'])
-# def search_my(make, year):
-#     db_data = db.session.query(car_data).filter_by(make=make, year=int(
-#         year)).first()  # This query will help us to search data from cars table.
-#     if not db_data:  # if no record found
-#         return "Car not found"
-#     return db_data.display()  # if record found
-#
-#
-# # By using this user can search the car registration report using "make" and "model"
-# @app.route('/searchby/<make>/<model>', methods=['GET'])
-# def search_mm(make, model):
-#     db_data = db.session.query(car_data).filter_by(make=make,
-#                                                    model=model).first()  # This query will help us to search data from cars table.
-#     if not db_data:  # if no record found
-#         return "Car not found"
-#     return db_data.display()  # if record found
-
+# We can see the dataset using this.
+@app.route('/dataset', methods=['GET'])  # this will execute as /database/search?action=year or model
+def dataset():
+    query_list = []
+    results = db.session.query(car_data).all()  # This query will help us to search data from cars table.
+    for result in results:
+        query_list.append(result.display())
+    return query_list
 
 # Using this user can search the car registration report using "year" and "model" as well
-@app.route('/database/search', methods=['POST'])  # this will execute as /database/search?action=year or model
-def search():
+@app.route('/database/search/<int:page>',
+           methods=['POST'])  # this will execute as /database/search?action=year or model
+def search(page):
     action = request.args.get('action')
     if action == 'model':
         data = request.get_json()
