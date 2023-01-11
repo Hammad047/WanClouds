@@ -1,9 +1,8 @@
 # Ignore .idea directories
-./.idea
-./__pacache__
-./*.xml/
-./*.iml/
+.idea/
 
-
-# Ignore all .pyc files in the `app` directory
-./*.pyc
+venv/
+__pacache__/
+.xml/
+.iml/
+.pyc/

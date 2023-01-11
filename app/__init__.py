@@ -1,6 +1,5 @@
 import datetime
 from flask import Flask
-import pymysql
 from configuration.config import DatabaseCredentials
 from flask_sqlalchemy import SQLAlchemy
 
@@ -17,11 +16,8 @@ app.config["JWT_REFRESH_TOKEN_EXPIRES"] = datetime.timedelta(minutes=1)
 db = SQLAlchemy(app)
 
 from app import api
-from app.Model import *
-
-# __all__ = ["app"]
-
+from models import Car, User
 
 with app.app_context():
-    # db.drop_all()
     db.create_all()
+

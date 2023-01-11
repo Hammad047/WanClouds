@@ -1,7 +1,8 @@
-from models import *
+from app import db
+from sqlalchemy import Column
+from sqlalchemy import String, Integer
 
-
-class Cars(db.Model):
+class Car(db.Model):
     object_id = Column(String(45), primary_key=True)
     year = Column(Integer)
     make = Column(String(45))
@@ -9,8 +10,8 @@ class Cars(db.Model):
     category = Column(String(45))
     created_at = Column(String(45))
     updated_at = Column(String(45))
-    # Tablename = "cars"
-    __tablename__ = "cars"
+
+    __tablename__ = 'car'
 
     # Setting values to the table
     def __init__(self, objectid, year, make, model, category, createdate, updatedate):
