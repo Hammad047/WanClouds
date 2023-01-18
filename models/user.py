@@ -2,6 +2,7 @@ from app import db
 from sqlalchemy import Column
 from sqlalchemy import String
 
+
 class User(db.Model):
     # COLUMNS OF USER TABLE
     name = Column(String(45))
