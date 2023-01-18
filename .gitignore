@@ -2,7 +2,7 @@
 .idea/
 
 venv/
-__pacache__/
+__pycache__/
 .xml/
 .iml/
 .pyc/

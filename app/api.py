@@ -12,9 +12,7 @@ from flask_jwt_extended import create_access_token
 from flask_jwt_extended import create_refresh_token
 from flask_jwt_extended import get_jwt_identity
 from flask_jwt_extended import jwt_required
-from flask_jwt_extended import JWTManager
-
-jwt = JWTManager(app)
+from jwt_token.jwt import jwt
 
 
 # By using this you can sign up and create an account which will be stored in "users" table
