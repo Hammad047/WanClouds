@@ -2,6 +2,7 @@ from app import db
 from sqlalchemy import Column
 from sqlalchemy import String, Integer
 
+
 class Car(db.Model):
     object_id = Column(String(45), primary_key=True)
     year = Column(Integer)

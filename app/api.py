@@ -1,20 +1,25 @@
-import datetime
-import json
-import urllib
+import re
 import bcrypt
+import json
+import logging
 import requests
+import urllib
 from app import *
-from flask import request, jsonify
-from models import user, car
+from flask import request, jsonify, Response
+from models.car import Car
+from models.user import User
 from authentication.email import *
 from werkzeug.security import check_password_hash
 from flask_jwt_extended import create_access_token
 from flask_jwt_extended import create_refresh_token
 from flask_jwt_extended import get_jwt_identity
 from flask_jwt_extended import jwt_required
-from flask_jwt_extended import JWTManager
+from jwt_token.jwt import jwt
 
-jwt = JWTManager(app)
+logger = logging.getLogger()
+logger.setLevel(logging.ERROR)
+
+email_regex = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
 
 
 # By using this you can sign up and create an account which will be stored in "users" table
@@ -27,14 +32,37 @@ def signup():
     """
     if request.method == 'POST':
         data = request.get_json()  # getting data from POSTMAN
+
+        if not data:
+            logger.info('Make sure everything is correctly written')
+            return Response('Make sure everything is correctly written', status=404)
+        # name
         name = data['name']  # get name
+        if not name:
+            logger.error("Name cannot be empty")
+            return Response('Name cannot be empty', status=404)
+        # email
         email = data['email']  # get email
+        if not (re.fullmatch(email_regex, email)):
+            logger.error("Please check your email")
+            return Response('Please check your email', status=404)
+        # password
         password = data['password']  # get password
+        if not password:
+            logger.error("Please check your password")
+            return Response('Password cannot be empty', status=404)
+        # hashed passwords
         hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-        send_email('', email)
-        adddata = user.User(name, email, hashed_password)  # Passing to the user_data
-        adddata.create()  # Here calling create functing to store the data in table.
-        return 'Congratulation! You have signed-up successfully.'
+        user_existed = db.session.query(User).filter_by(email=email).first()
+        if not user_existed:
+            send_email('', email)
+            create_user = User(name, email, hashed_password)  # Passing to the user_data
+            create_user.create()  # Here calling create functing to store the data in table.
+            logger.info('Data Stored')
+            return Response('You have successfully signed up. Please check your email for confirmation.', status=201)
+        else:
+            logger.error("This user is already existed in your database")
+            return Response('You already have an account with this email.', status=409)
 
 
 # By using this user can log in by providing email and password which they entered during signup process.
@@ -45,15 +73,22 @@ def signin():
     our local database and then access token and refresh token will be assigned to the user.
     :return: access_token, refresh_token
     """
-
     if request.method == 'POST':
         data = request.get_json()  # get data from postman
         email = data['email']  # get email
+        if not (re.fullmatch(email_regex, email)):
+            logger.error("Please check your email")
+            return Response('Please check your email', status=404)
         password = data['password']  # get password
-        userdata = db.session.query(user.User).filter_by(
-            email=email).first()  # This query will help us to search data from users table.
+        if not password:
+            logger.error("Please check your password")
+            return Response('Password cannot be empty', status=404)
+        userdata = db.session.query(User).filter_by(email=email).first()  # This query will help us
+        if not userdata:
+            return Response('No User Found', status=404)
+        # to search data from users table.
         if not userdata and check_password_hash(userdata.password, password):  # if no record found
-            return f'Warning! {data["email"]} Invalid email or {data["password"]} password'
+            return Response('No record found. Please check your email and password again.', status=404)
         else:
             access_token = create_access_token(identity=data['email'], fresh=True)
             refresh_token = create_refresh_token(identity=data['email'])
@@ -69,7 +104,7 @@ def refresh():
     """
     identity = get_jwt_identity()
     access_token = create_access_token(identity=identity, fresh=True)
-    return jsonify(access_token=access_token, fresh=True)
+    return Response(access_token=access_token, fresh=True, status=200)
 
 
 # By using this user can create a dataset using the url given
@@ -80,30 +115,37 @@ def create_dataset():
     Here we are fetching dataset from the url https://parseapi.back4app.com/classes/Car_Model_List?limit=10 and then
     this data being stored in our local database.
     :return: dataset
-    """
+        """
     where = urllib.parse.quote_plus("""
     {
         "Year": {
-            "$lte": 2032
+           "$lte": 2032
         }
     }
     """)
     url = 'https://parseapi.back4app.com/classes/Car_Model_List?limit=10'
     headers = {
-        'X-Parse-Application-Id': 'hlhoNKjOvEhqzcVAJ1lxjicJLZNVv36GdbboZj3Z',  # This is the fake app's application id
-        'X-Parse-Master-Key': 'SNMJJF0CZZhTPhLDIqGhTlUNV9r60M2Z5spyWfXW'  # This is the fake app's readonly master key
+        'X-Parse-Application-Id': 'hlhoNKjOvEhqzcVAJ1lxjicJLZNVv36GdbboZj3Z',
+        # This is the fake app's application id
+        'X-Parse-Master-Key': 'SNMJJF0CZZhTPhLDIqGhTlUNV9r60M2Z5spyWfXW'
+        # This is the fake app's readonly master key
     }
-    response = json.loads(
-        requests.get(url, headers=headers).content.decode('utf-8'))
+    try:
+        response = json.loads(
+            requests.get(url, headers=headers).content.decode('utf-8'))
+    except (requests.exceptions.HTTPError, requests.exceptions.ConnectTimeout,
+            requests.exceptions.InvalidURL, requests.exceptions.ConnectionError) as err:
+        logger.error('Invalid URL')
+        return Response('Something wrong, Please try again!', status=404)
     for data in response['results']:
-        check = db.session.query(car.Car).filter_by(object_id=data['objectId']).first()
-        if check == None:
-            adddata = car.Car(data['objectId'], data['Year'], data['Make'], data['Model'], data['Category'],
-                              data['createdAt'], data['updatedAt'])
-            adddata.create()
+        car_report = db.session.query(Car).filter_by(object_id=data['objectId']).first()
+        if car_report is None:
+            car_report = Car(data['objectId'], data['Year'], data['Make'], data['Model'], data['Category'],
+                             data['createdAt'], data['updatedAt'])
+            car_report.create()
         else:
             pass
-    return
+    return Response('Record Stored', status=200)
 
 
 @app.route('/dataset/<int:page>/<int:limit>/done', methods=['POST'])
@@ -115,17 +157,20 @@ def paginated_dataset(page, limit):
     :param page:
     :return: dataset
     """
-    results = db.session.query(car.Car).all()  # This query will help us to search data from cars table.
-    query_list = []
-    for result in results:
-        query_list.append(result.display())
-    start_index = (page - 1) * limit
-    end_index = start_index + limit
-    car_dataset = query_list[start_index:end_index]
-    byte_to_string = ''
-    for item in car_dataset:
-        byte_to_string += str(item) + ' ' + '\n' + '\n'
-    return byte_to_string
+    results = db.session.query(Car).all()  # This query will help us to search data from cars table.
+    if results:
+        query_list = []
+        for result in results:
+            query_list.append(result.display())
+        start_index = (page - 1) * limit
+        end_index = start_index + limit
+        car_dataset = query_list[start_index:end_index]
+        byte_to_string = ''
+        for item in car_dataset:
+            byte_to_string += str(item) + ' ' + '\n' + '\n'
+        return Response(byte_to_string, status=200)
+    else:
+        return Response('No Record Found', status=404)
 
 
 # Using this user can search the car registration report using "year" and "model" as well
@@ -140,23 +185,35 @@ def search_registration_report():
     action = request.args.get('action')
     if action == 'model':
         data = request.get_json()
-        make = data['make']
-        model = data['model']
-        db_data = db.session.query(car.Car).filter_by(make=make,
+        if data:
+            make = data['make']
+            if not make:
+                return Response('Make can not be empty.', status=404)
+            model = data['model']
+            if not model:
+                return Response('Model can not be empty.', status=404)
+            db_data = db.session.query(Car).filter_by(make=make,
                                                       model=model).first()  # This query will help us to search data from cars table.
-        if not db_data:  # if no record found
-            return "Car not found"
-        return db_data.display()  # if record found
+            if not db_data:  # if no record found
+                return Response('No Record Found', status=404)
+            return Response(db_data.display(), status=200)  # if record found
+        else:
+            return Response('Something wrong. Please recheck all details', status=404)
 
     elif action == 'year':
         data = request.get_json()
-        make = data['make']
-        year = data['year']
-        db_data = db.session.query(car.Car).filter_by(make=make,
+        if data:
+            make = data['make']
+            if not make:
+                return Response('Make can not be empty.', status=404)
+            year = data['year']
+            if not year:
+                return Response('Year can not be empty.', status=404)
+            db_data = db.session.query(Car).filter_by(make=make,
                                                       year=year).first()  # This query will help us to search data from cars table.
-        if not db_data:  # if no record found
-            return "Car not found"
-        return db_data.display()  # if record found
+            if not db_data:  # if no record found
+                return Response('No Record Found', status=404)
+            return Response(db_data.display(), status=200)  # if record found
     else:
         print('Invalid Action')
-    return
+    return Response(status=200)

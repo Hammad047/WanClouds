@@ -1,23 +1,17 @@
-import datetime
+from configuration import config
+from database.db import db
 from flask import Flask
-from configuration.config import DatabaseCredentials
-from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
 
 app = Flask(__name__)
-#Creating connection with Database, here the name of the database is car_app
-app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{DatabaseCredentials.db_user}:' \
-                                        f'{DatabaseCredentials.db_password}@' \
-                                        f'{DatabaseCredentials.container_name}/{DatabaseCredentials.db_name}'
-app.config["JWT_SECRET_KEY"] = "flask123."
-app.config["JWT_ACCESS_TOKEN_EXPIRES"] = datetime.timedelta(seconds=30)
-app.config["JWT_REFRESH_TOKEN_EXPIRES"] = datetime.timedelta(minutes=1)
-
-
-db = SQLAlchemy(app)
+app.config.from_object(config.DatabaseCredentials)
+# Creating connection with database, here the name of the database is car_app
+# engine = create_engine(os.environ.get('SQLALCHEMY_DATABASE_URI'))
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:root@db/car_app'
 
 from app import api
-from models import Car, User
+from models.car import Car
+from models.user import User
 
-with app.app_context():
-    db.create_all()
-
+db.init_app(app)
+migrate = Migrate(app, db)
