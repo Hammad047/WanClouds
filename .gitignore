@@ -1,0 +1,8 @@
+# Ignore .idea directories
+.idea/
+
+venv/
+__pycache__/
+.xml/
+.iml/
+.pyc/

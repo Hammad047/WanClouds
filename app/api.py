@@ -1,22 +1,28 @@
-# This file contains the APIs that I created to solve the problem.
-from functools import wraps
-
-import bcrypt
-from werkzeug.security import check_password_hash
-
-from app.Model import user_data, car_data
-import urllib
-import requests
-import json
-from app import app, db
-from flask import request, jsonify
-import jwt
 import datetime
-from authentication.configuration import token_required, send_email
+import json
+import urllib
+import bcrypt
+import requests
+from app import *
+from flask import request, jsonify
+from models import user, car
+from authentication.email import *
+from werkzeug.security import check_password_hash
+from flask_jwt_extended import create_access_token
+from flask_jwt_extended import create_refresh_token
+from flask_jwt_extended import get_jwt_identity
+from flask_jwt_extended import jwt_required
+from jwt_token.jwt import jwt
+
 
 # By using this you can sign up and create an account which will be stored in "users" table
 @app.route('/user/signup', methods=['POST'])
 def signup():
+    """
+    This function allow the user to sign up. User will provide name, email, password for signup and this data will be
+    stored in our local database.
+    :return: access_token, refresh_token
+    """
     if request.method == 'POST':
         data = request.get_json()  # getting data from POSTMAN
         name = data['name']  # get name
@@ -24,37 +30,55 @@ def signup():
         password = data['password']  # get password
         hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
         send_email('', email)
-        adddata = user_data(name, email, hashed_password)  # Passing to the user_data
-        db.session.add(adddata)
-        db.session.commit()
-        # adddata.create()  # Here calling create functing to store the data in table.
+        adddata = user.User(name, email, hashed_password)  # Passing to the user_data
+        adddata.create()  # Here calling create functing to store the data in table.
         return 'Congratulation! You have signed-up successfully.'
 
 
 # By using this user can log in by providing email and password which they entered during signup process.
 @app.route('/user/signin', methods=['POST'])
 def signin():
+    """
+    This function allow the user to access the APIs. It will match the user email & password with the data stored in
+    our local database and then access token and refresh token will be assigned to the user.
+    :return: access_token, refresh_token
+    """
+
     if request.method == 'POST':
         data = request.get_json()  # get data from postman
         email = data['email']  # get email
         password = data['password']  # get password
-        userdata = db.session.query(user_data).filter_by(
+        userdata = db.session.query(user.User).filter_by(
             email=email).first()  # This query will help us to search data from users table.
         if not userdata and check_password_hash(userdata.password, password):  # if no record found
             return f'Warning! {data["email"]} Invalid email or {data["password"]} password'
         else:
-            # Based on the name of the user a Token will be generated which will be valid for 30 minutes
-            token = jwt.encode(
-                {'name': userdata.name, 'exp': datetime.datetime.utcnow() + datetime.timedelta(minutes=30)},
-                app.config['SECRET_KEY'], "HS256")
-            return token
-        return f' Hi {userdata.name}'  # if record found
+            access_token = create_access_token(identity=data['email'], fresh=True)
+            refresh_token = create_refresh_token(identity=data['email'])
+            return jsonify(access_token=access_token, refresh_token=refresh_token)
 
 
-# By using this user can create a dataset using the url given, this link is available in "contstants.py" file
-@app.route('/dataset/createdataset', methods=['GET'])
-@token_required
-def createdataset():
+@app.route("/refresh", methods=["POST"])
+@jwt_required(refresh=True)
+def refresh():
+    """
+    This function is used to refresh the token which we create when a user log in.
+    :return: token
+    """
+    identity = get_jwt_identity()
+    access_token = create_access_token(identity=identity, fresh=True)
+    return jsonify(access_token=access_token, fresh=True)
+
+
+# By using this user can create a dataset using the url given
+@app.route('/dataset/createdataset', methods=['POST'])
+@jwt_required(fresh=True)
+def create_dataset():
+    """
+    Here we are fetching dataset from the url https://parseapi.back4app.com/classes/Car_Model_List?limit=10 and then
+    this data being stored in our local database.
+    :return: dataset
+    """
     where = urllib.parse.quote_plus("""
     {
         "Year": {
@@ -70,36 +94,54 @@ def createdataset():
     response = json.loads(
         requests.get(url, headers=headers).content.decode('utf-8'))
     for data in response['results']:
-        print(f'data fetched: {data}')
-        check = db.session.query(car_data).filter_by(object_id=data['objectId']).first()
+        check = db.session.query(car.Car).filter_by(object_id=data['objectId']).first()
         if check == None:
-            adddata = car_data(data['objectId'], data['Year'], data['Make'], data['Model'], data['Category'],
-                               data['createdAt'], data['updatedAt'])
+            adddata = car.Car(data['objectId'], data['Year'], data['Make'], data['Model'], data['Category'],
+                              data['createdAt'], data['updatedAt'])
             adddata.create()
         else:
             pass
-    return 'Create Dataset Returned'
+    return
 
-# We can see the dataset using this.
-@app.route('/dataset', methods=['GET'])  # this will execute as /database/search?action=year or model
-def dataset():
+
+@app.route('/dataset/<int:page>/<int:limit>/done', methods=['POST'])
+@jwt_required(fresh=True)
+def paginated_dataset(page, limit):
+    """
+    Pagination is implemented in this function. this function is used to display records depends on the pagination.
+    :param limit:
+    :param page:
+    :return: dataset
+    """
+    results = db.session.query(car.Car).all()  # This query will help us to search data from cars table.
     query_list = []
-    results = db.session.query(car_data).all()  # This query will help us to search data from cars table.
     for result in results:
         query_list.append(result.display())
-    return query_list
+    start_index = (page - 1) * limit
+    end_index = start_index + limit
+    car_dataset = query_list[start_index:end_index]
+    byte_to_string = ''
+    for item in car_dataset:
+        byte_to_string += str(item) + ' ' + '\n' + '\n'
+    return byte_to_string
+
 
 # Using this user can search the car registration report using "year" and "model" as well
-@app.route('/database/search/<int:page>',
-           methods=['POST'])  # this will execute as /database/search?action=year or model
-def search(page):
+@app.route('/database/search', methods=['POST'])  # this will execute as /database/search?action=year or model
+@jwt_required(refresh=True)
+def search_registration_report():
+    """
+     This function allow the user search the car registration report that are stored in our database. Using this
+     user can search the car registration report using "year" and "model" as well
+     :return: registration_report
+     """
     action = request.args.get('action')
     if action == 'model':
         data = request.get_json()
         make = data['make']
         model = data['model']
-        db_data = db.session.query(car_data).filter_by(make=make,
-                                                       model=model).first()  # This query will help us to search data from cars table.
+        db_data = db.session.query(car.Car).filter_by(make=make,
+                                                      model=model).first()  # This query will help us to search data from cars table.
         if not db_data:  # if no record found
             return "Car not found"
         return db_data.display()  # if record found
@@ -108,8 +150,8 @@ def search(page):
         data = request.get_json()
         make = data['make']
         year = data['year']
-        db_data = db.session.query(car_data).filter_by(make=make,
-                                                       year=year).first()  # This query will help us to search data from cars table.
+        db_data = db.session.query(car.Car).filter_by(make=make,
+                                                      year=year).first()  # This query will help us to search data from cars table.
         if not db_data:  # if no record found
             return "Car not found"
         return db_data.display()  # if record found

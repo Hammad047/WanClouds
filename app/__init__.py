@@ -1,14 +1,22 @@
-from flask import Flask, request, jsonify, make_response
-import pymysql
-from flask_sqlalchemy import SQLAlchemy
-
+import datetime
+from flask import Flask
+from configuration.config import DatabaseCredentials
+from database.db import db
 app = Flask(__name__)
 #Creating connection with Database, here the name of the database is car_app
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:root@db/car_app'
-# app.config['SQLALCHEMY_TRACK_MODIFICATION'] = False
-db = SQLAlchemy(app)
+app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{DatabaseCredentials.db_user}:' \
+                                        f'{DatabaseCredentials.db_password}@' \
+                                        f'{DatabaseCredentials.container_name}/{DatabaseCredentials.db_name}'
+app.config["JWT_SECRET_KEY"] = "flask123."
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = datetime.timedelta(seconds=30)
+app.config["JWT_REFRESH_TOKEN_EXPIRES"] = datetime.timedelta(minutes=1)
+
 
 from app import api
-from app.Model import *
-db.create_all()
+from models import Car, User
+
+db.init_app(app)
+
+with app.app_context():
+    db.create_all()
 

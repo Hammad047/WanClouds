@@ -1,33 +1,8 @@
-# In this file I am creating tables for User and Car
-
 from app import db
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column
+from sqlalchemy import String, Integer
 
-
-# TABLE FOR USER
-class user_data(db.Model):
-    # COLUMNS OF USER TABLE
-    name = Column(String(45))
-    email = Column(String(100), primary_key=True)
-    password = Column(String(200))
-    # TABLE NAME = "users"
-    __tablename__ = "users"
-
-    # Setting values to the table
-    def __init__(self, name, email, password):
-        self.name = name
-        self.email = email
-        self.password = password
-
-    # To make the changing in the table
-    def create(self):
-        db.session.add(self)
-        db.session.commit()
-        return self
-
-
-# TABLE FOR CAR
-class car_data(db.Model):
+class Car(db.Model):
     object_id = Column(String(45), primary_key=True)
     year = Column(Integer)
     make = Column(String(45))
@@ -35,8 +10,8 @@ class car_data(db.Model):
     category = Column(String(45))
     created_at = Column(String(45))
     updated_at = Column(String(45))
-    # Tablename = "cars"
-    __tablename__ = "cars"
+
+    __tablename__ = 'car'
 
     # Setting values to the table
     def __init__(self, objectid, year, make, model, category, createdate, updatedate):

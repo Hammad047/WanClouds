@@ -26,7 +26,8 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - .:/car_app_file
+#      - .:/car_app_file
+      - .:/var/lib/app
     depends_on:
       - db
     restart: always
