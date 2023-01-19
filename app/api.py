@@ -21,7 +21,6 @@ logger.setLevel(logging.ERROR)
 
 email_regex = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
 
-
 # By using this you can sign up and create an account which will be stored in "users" table
 @app.route('/user/signup', methods=['POST'])
 def signup():
