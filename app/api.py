@@ -95,7 +95,7 @@ def refresh():
     """
     identity = get_jwt_identity()
     access_token = create_access_token(identity=identity, fresh=True)
-    return Response(access_token=access_token, fresh=True, status=200)
+    return jsonify(access_token=access_token)
 
 
 # By using this user can create a dataset using the url given
