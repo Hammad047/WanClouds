@@ -67,7 +67,7 @@ def signin():
     if request.method == 'POST':
         data = request.get_json()  # get data from postman
         email = data['email']  # get email
-        if not (re.fullmatch(email_regex, email)):
+        if not email:
             logger.error("Please check your email")
             return Response('Please check your email', status=404)
         password = data['password']  # get password
