@@ -5,24 +5,26 @@ import logging
 import requests
 import urllib
 from app import *
-from flask import request, jsonify, Response
-from models.car import Car
-from models.user import User
 from authentication.email import *
-from werkzeug.security import check_password_hash
+from flask import request, jsonify, Response
 from flask_jwt_extended import create_access_token
 from flask_jwt_extended import create_refresh_token
 from flask_jwt_extended import get_jwt_identity
 from flask_jwt_extended import jwt_required
 from jwt_token.jwt import jwt
+from models.car import Car
+from models.user import User
+from schemas.user_schema import UserSchema
+from schemas.customized_decorator import validate_schema
+from werkzeug.security import check_password_hash
 
 logger = logging.getLogger()
 logger.setLevel(logging.ERROR)
 
-email_regex = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
 
 # By using this you can sign up and create an account which will be stored in "users" table
 @app.route('/user/signup', methods=['POST'])
+@validate_schema(UserSchema())
 def signup():
     """
     This function allow the user to sign up. User will provide name, email, password for signup and this data will be
@@ -31,25 +33,15 @@ def signup():
     """
     if request.method == 'POST':
         data = request.get_json()  # getting data from POSTMAN
-
         if not data:
             logger.info('Make sure everything is correctly written')
             return Response('Make sure everything is correctly written', status=404)
         # name
         name = data['name']  # get name
-        if not name:
-            logger.error("Name cannot be empty")
-            return Response('Name cannot be empty', status=404)
         # email
         email = data['email']  # get email
-        if not (re.fullmatch(email_regex, email)):
-            logger.error("Please check your email")
-            return Response('Please check your email', status=404)
         # password
         password = data['password']  # get password
-        if not password:
-            logger.error("Please check your password")
-            return Response('Password cannot be empty', status=404)
         # hashed passwords
         hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
         user_existed = db.session.query(User).filter_by(email=email).first()
@@ -75,7 +67,7 @@ def signin():
     if request.method == 'POST':
         data = request.get_json()  # get data from postman
         email = data['email']  # get email
-        if not (re.fullmatch(email_regex, email)):
+        if not email:
             logger.error("Please check your email")
             return Response('Please check your email', status=404)
         password = data['password']  # get password
@@ -103,7 +95,7 @@ def refresh():
     """
     identity = get_jwt_identity()
     access_token = create_access_token(identity=identity, fresh=True)
-    return Response(access_token=access_token, fresh=True, status=200)
+    return jsonify(access_token=access_token)
 
 
 # By using this user can create a dataset using the url given
