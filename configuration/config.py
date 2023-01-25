@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta
 
 
 class DatabaseCredentials(object):
@@ -9,3 +10,17 @@ class DatabaseCredentials(object):
     container_name = os.environ.get('container_name', 'db')
 
     SQLALCHEMY_DATABASE_URI = f'mysql+pymysql://{db_user}:{db_password}@{container_name}/{db_name}'
+
+
+class CeleryConfigurations(DatabaseCredentials):
+    Celery_Config = {
+        'broker_url': 'redis://redis:6379/0',
+        'result_backend': 'redis://redis:6379/0',
+    }
+
+    CELERY_BEAT_SCHEDULE = {
+        'create_dataset': {
+            'task': 'create_dataset',
+            'schedule': timedelta(hours=24),
+        },
+    }

@@ -1,9 +1,5 @@
-import re
 import bcrypt
-import json
 import logging
-import requests
-import urllib
 from app import *
 from authentication.email import *
 from flask import request, jsonify, Response
@@ -11,7 +7,7 @@ from flask_jwt_extended import create_access_token
 from flask_jwt_extended import create_refresh_token
 from flask_jwt_extended import get_jwt_identity
 from flask_jwt_extended import jwt_required
-from jwt_token.jwt import jwt
+from jwt_token import jwt
 from models.car import Car
 from models.user import User
 from schemas.user_schema import UserSchema
@@ -96,47 +92,6 @@ def refresh():
     identity = get_jwt_identity()
     access_token = create_access_token(identity=identity, fresh=True)
     return jsonify(access_token=access_token)
-
-
-# By using this user can create a dataset using the url given
-@app.route('/dataset/createdataset', methods=['POST'])
-@jwt_required(fresh=True)
-def create_dataset():
-    """
-    Here we are fetching dataset from the url https://parseapi.back4app.com/classes/Car_Model_List?limit=10 and then
-    this data being stored in our local database.
-    :return: dataset
-        """
-    where = urllib.parse.quote_plus("""
-    {
-        "Year": {
-           "$lte": 2032
-        }
-    }
-    """)
-    url = 'https://parseapi.back4app.com/classes/Car_Model_List?limit=10'
-    headers = {
-        'X-Parse-Application-Id': 'hlhoNKjOvEhqzcVAJ1lxjicJLZNVv36GdbboZj3Z',
-        # This is the fake app's application id
-        'X-Parse-Master-Key': 'SNMJJF0CZZhTPhLDIqGhTlUNV9r60M2Z5spyWfXW'
-        # This is the fake app's readonly master key
-    }
-    try:
-        response = json.loads(
-            requests.get(url, headers=headers).content.decode('utf-8'))
-    except (requests.exceptions.HTTPError, requests.exceptions.ConnectTimeout,
-            requests.exceptions.InvalidURL, requests.exceptions.ConnectionError) as err:
-        logger.error('Invalid URL')
-        return Response('Something wrong, Please try again!', status=404)
-    for data in response['results']:
-        car_report = db.session.query(Car).filter_by(object_id=data['objectId']).first()
-        if car_report is None:
-            car_report = Car(data['objectId'], data['Year'], data['Make'], data['Model'], data['Category'],
-                             data['createdAt'], data['updatedAt'])
-            car_report.create()
-        else:
-            pass
-    return Response('Record Stored', status=200)
 
 
 @app.route('/dataset/<int:page>/<int:limit>/done', methods=['POST'])
