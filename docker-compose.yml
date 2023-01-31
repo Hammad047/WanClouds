@@ -35,6 +35,7 @@ services:
     container_name: redis
     image: redis:5.0.5
     hostname: redis
+    restart: always
 
   worker:
     container_name: celery_worker
@@ -42,6 +43,7 @@ services:
       context: .
     hostname: worker
     command: celery -A celery_task.background_task.celery worker --loglevel=info
+    restart: always
     volumes:
       - .:/car_app_file
     links:
@@ -55,7 +57,7 @@ services:
       build:
         context: .
       command: celery -A celery_task.background_task.celery beat
-      restart: on-failure
+      restart: always
       volumes:
         - .:/car_app_file/beat
       depends_on:
