@@ -26,11 +26,44 @@ services:
     ports:
       - "8000:8000"
     volumes:
-#      - .:/car_app_file
       - .:/var/lib/app
     depends_on:
       - db
     restart: always
+
+  redis:
+    container_name: redis
+    image: redis:5.0.5
+    hostname: redis
+    restart: always
+
+  worker:
+    container_name: celery_worker
+    build:
+      context: .
+    hostname: worker
+    command: celery -A celery_task.background_task.celery worker --loglevel=info
+    restart: always
+    volumes:
+      - .:/car_app_file
+    links:
+      - redis
+    depends_on:
+      - app
+      - redis
+
+  celery-beat:
+      container_name: celery-beat
+      build:
+        context: .
+      command: celery -A celery_task.background_task.celery beat
+      restart: always
+      volumes:
+        - .:/car_app_file/beat
+      depends_on:
+        - worker
+        - app
+        - redis
 
 volumes:
   wancloudsappdbvolume:
