@@ -14,6 +14,8 @@ flask-marshmallow==0.14.0
 Flask-Migrate==4.0.1
 Flask-SQLAlchemy==3.0.2
 greenlet==2.0.1
+grpcio==1.51.1
+grpcio-tools==1.51.1
 gunicorn==20.1.0
 idna==3.4
 itsdangerous==2.1.2
@@ -24,6 +26,7 @@ marshmallow==3.19.0
 marshmallow-sqlalchemy==0.28.1
 mysqlclient==2.1.1
 packaging==22.0
+protobuf==4.21.12
 pycparser==2.21
 PyJWT>=2.0.0
 PyMySQL==1.0.2

@@ -38,6 +38,6 @@ class Car(db.Model):
             "make": self.make,
             "model": self.model,
             "category": self.category,
-            "created_at": self.created_at,
-            "updated_at": self.updated_at
+            "created_at": str(self.created_at),
+            "updated_at": str(self.updated_at)
         }
