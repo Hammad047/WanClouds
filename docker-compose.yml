@@ -36,6 +36,8 @@ services:
     image: redis:5.0.5
     hostname: redis
     restart: always
+    ports:
+      - "6379:6379"
 
   worker:
     container_name: celery_worker
@@ -53,17 +55,30 @@ services:
       - redis
 
   celery-beat:
-      container_name: celery-beat
-      build:
-        context: .
-      command: celery -A celery_task.background_task.celery beat
-      restart: always
-      volumes:
-        - .:/car_app_file/beat
-      depends_on:
-        - worker
-        - app
-        - redis
+    container_name: celery-beat
+    build:
+      context: .
+    command: celery -A celery_task.background_task.celery beat
+    restart: always
+    volumes:
+      - .:/car_app_file/beat
+    depends_on:
+      - worker
+      - app
+      - redis
+
+  grpc_server:
+    container_name: grpc_server
+    build:
+      context: .
+    entrypoint: ./bin/rpc.sh
+    restart: always
+    volumes:
+      - .:/car_app_file/grpc_container
+    depends_on:
+      - app
+    ports:
+      - "50051:50051"
 
 volumes:
   wancloudsappdbvolume:
